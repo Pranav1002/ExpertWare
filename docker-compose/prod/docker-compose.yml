@@ -1,0 +1,100 @@
+services:
+  warehousedb:
+    container_name: warehousedb
+    ports:
+      - 3311:3306
+    environment:
+      MYSQL_DATABASE: warehousedb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  orderdb:
+    container_name: orderdb
+    ports:
+      - 3312:3306
+    environment:
+      MYSQL_DATABASE: orderdb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  optimizationdb:
+    container_name: optimizationdb
+    ports:
+      - 3313:3306
+    environment:
+      MYSQL_DATABASE: optimizationdb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  configserver:
+    image: "pranav1002/configserver:v1"
+    container_name: configserver-ms
+    ports:
+      - "9271:9271"
+    healthcheck:
+      test: "curl --fail --silent localhost:9271/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    extends:
+      file: common-config.yml
+      service: microservice-base-config
+
+  warehouse:
+    image: "pranav1002/warehouse:v1"
+    container_name: warehouse-ms
+    ports:
+      - "9201:9201"
+    environment:
+      SPRING_APPLICATION_NAME: "warehouse"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://warehousedb:3306/warehousedb"
+    depends_on:
+      warehousedb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+  order:
+    image: "pranav1002/order:v1"
+    container_name: order-ms
+    ports:
+      - "9203:9203"
+    environment:
+      SPRING_APPLICATION_NAME: "order"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://orderdb:3306/orderdb"
+    depends_on:
+      orderdb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+  optimization:
+    image: "pranav1002/optimization:v1"
+    container_name: optimization-ms
+    ports:
+      - "9204:9204"
+    environment:
+      SPRING_APPLICATION_NAME: "optimization"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://optimizationdb:3306/optimizationdb"
+    depends_on:
+      optimizationdb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+networks:
+  expertware:
+    driver: "bridge"

@@ -1,0 +1,23 @@
+Spring:
+  application:
+    name: "configserver"
+  profiles:
+    active: git
+  cloud:
+    config:
+      server:
+        git:
+          uri: https://github.com/Pranav1002/warehouse-config
+          default-label: main
+          timeout: 5
+          clone-on-start: true
+          force-pull: true
+
+server:
+  port: 9271
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"

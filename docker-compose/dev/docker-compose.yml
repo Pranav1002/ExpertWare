@@ -1,0 +1,171 @@
+services:
+  warehousedb:
+    container_name: warehousedb
+    ports:
+      - 3311:3306
+    environment:
+      MYSQL_DATABASE: warehousedb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  inventorydb:
+    container_name: inventorydb
+    ports:
+      - 27018:27017
+    environment:
+      MONGO_INITDB_DATABASE: inventorydb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  orderdb:
+    container_name: orderdb
+    ports:
+      - 3312:3306
+    environment:
+      MYSQL_DATABASE: orderdb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  optimizationdb:
+    container_name: optimizationdb
+    ports:
+      - 3313:3306
+    environment:
+      MYSQL_DATABASE: optimizationdb
+    extends:
+      file: common-config.yml
+      service: microservice-db-config
+
+  configserver:
+    image: "pranav1002/configserver:v1"
+    container_name: configserver-ms
+    ports:
+      - "9271:9271"
+    healthcheck:
+      test: "curl --fail --silent localhost:9271/actuator/health/readiness | grep UP || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    extends:
+      file: common-config.yml
+      service: microservice-base-config
+
+  warehouse:
+    image: "pranav1002/warehouse:v1"
+    container_name: warehouse-ms
+    ports:
+      - "9201:9201"
+    environment:
+      SPRING_APPLICATION_NAME: "warehouse"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://warehousedb:3306/warehousedb"
+    depends_on:
+      warehousedb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+  inventory:
+    image: "pranav1002/inventory:v1"
+    container_name: inventory-ms
+    ports:
+      - "9202:9202"
+    environment:
+      SPRING_APPLICATION_NAME: "inventory"
+      SPRING_DATA_MONGODB_URI: "mongodb://inventorydb:27017/inventorydb"
+    depends_on:
+      inventorydb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+  order:
+    image: "pranav1002/order:v1"
+    container_name: order-ms
+    ports:
+      - "9203:9203"
+    environment:
+      SPRING_APPLICATION_NAME: "order"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://orderdb:3306/orderdb"
+    depends_on:
+      orderdb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+  optimization:
+    image: "pranav1002/optimization:v1"
+    container_name: optimization-ms
+    ports:
+      - "9204:9204"
+    environment:
+      SPRING_APPLICATION_NAME: "optimization"
+      SPRING_DATASOURCE_URL: "jdbc:mysql://optimizationdb:3306/optimizationdb"
+    depends_on:
+      optimizationdb:
+        condition: service_healthy
+      configserver:
+        condition: service_healthy
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+
+  gatewayserver:
+    image: "pranav1002/gatewayserver:v1"
+    container_name: gatewayserver-ms
+    ports:
+      - "9272:9272"
+    depends_on:
+      warehouse:
+        condition: service_healthy
+      order:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      optimization:
+        condition: service_healthy
+    environment:
+      SPRING_APPLICATION_NAME: "gatewayserver"
+      OTEL_SERVICE_NAME: "gatewayserver"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK-SET-URI: "http://keycloak:8080/realms/master/protocol/openid-connect/certs"
+    extends:
+      file: common-config.yml
+      service: microservice-eureka-config
+
+  eurekaserver:
+    image: "pranav1002/eurekaserver:v1"
+    container_name: eurekaserver-ms
+    ports:
+      - "9270:9270"
+    depends_on:
+      configserver:
+        condition: service_healthy
+    healthcheck:
+      test: "curl --fail --silent localhost:9270/actuator/health/readiness | grep UP || exit 1"
+      interval: 20s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    extends:
+      file: common-config.yml
+      service: microservice-configserver-config
+    environment:
+      SPRING_APPLICATION_NAME: "eurekaserver"
+      OTEL_SERVICE_NAME: "eurekaserver"
+
+
+networks:
+  expertware:
+    driver: "bridge"

@@ -1,0 +1,32 @@
+server:
+  port: 9204
+
+spring:
+  application:
+    name: "optimization"
+  datasource:
+    url: jdbc:mysql://localhost:3313/optimizationdb
+    username: root
+    password: pranav123
+
+  config:
+    import: "optional:configserver:http://localhost:9271/"
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+eureka:
+  instance:
+    preferIpAddress: true
+  client:
+    fetchRegistry: true
+    registerWithEureka: true
+    serviceUrl:
+      defaultZone: http://localhost:9270/eureka/
